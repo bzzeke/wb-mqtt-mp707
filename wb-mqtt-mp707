@@ -1,0 +1,31 @@
+#!/bin/sh
+set -e
+BUS=${1:-0}
+INTERVAL=${2:-5}
+
+
+die() { echo "$@" 1>&2 ; exit 1; }
+
+
+TEMP_INPUT_PATH="/usr/bin/wb-mqtt-mp707"
+MQTT_DEVICE_ID="mp707-$BUS"
+SENSORS=`$TEMP_INPUT_PATH -s | cut -d'=' -f2`
+
+sleep 2
+
+# get all sensors
+for i in $SENSORS; do
+    mosquitto_pub -t "/devices/${MQTT_DEVICE_ID}-{$i}/meta/name" -r -m "MP707 Sensor ($BUS-$i)"
+    mosquitto_pub -t "/devices/${MQTT_DEVICE_ID}-{$i}/controls/temperature/meta/type" -r -m "temperature"
+done
+
+while [ 1 ]; do
+
+for i in $SENSORS; do
+    TEMP_INPUT=`${TEMP_INPUT_PATH} -t${i}`
+    TEMP_INPUT=`printf "%.1f\n" $TEMP_INPUT`
+    mosquitto_pub -t "/devices/${MQTT_DEVICE_ID}-{$i}/controls/temperature" -r -m "$TEMP_INPUT"
+done
+    sleep ${INTERVAL}
+done
+
